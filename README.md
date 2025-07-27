@@ -11,71 +11,131 @@
 </p>
 
 <p align="center">
-  <a href="#about">About</a>
-  •
-  <a href="#features">Features</a>
-  •
-  <a href="#installation">Installation</a>
-  •
-  <a href="#images">Images</a>
-  •
+  <a href="#about">About</a> •
+  <a href="#features">Features</a> •
+  <a href="#commands">Commands</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#testing--handoff">Testing&nbsp;&amp;&nbsp;Handoff</a> •
+  <a href="#images">Images</a> •
   <a href="#how-can-i-help">Help</a>
 </p>
 
 ## About
-The **Telegram Support Bot** 📬 helps you to manage and organize your support inquiries.
+The **Telegram Support Bot** 📬 is an end-to-end help-desk solution designed for Telegram.  
+It forwards user messages to a private support group, lets agents claim & resolve tickets, tracks agent performance/commissions, and routes requests by language ― all from one lightweight Python app.
+
+---
 
 ## Features
-- **Text**, **Photos**, **Documents** and **Stickers** are being forwarded
-- Spam protection (sensitivity can be set in [`config.py`](https://github.com/fabston/Telegram-Support-Bot/blob/master/config.py))
-- Bad words filter (using regex, words can be set in [`config.py`](https://github.com/fabston/Telegram-Support-Bot/blob/master/config.py))
-- List all open/unanswered tickets (time passed since ticket opened is being shown as well)
-- Ban / Un-ban users (via reply or user id). User won't be able to interact with the bot anymore
-- List banned users, with last interaction point
-- Customisable FAQ text
-- Detect the users language and display it as an emoji
+| Group | Highlights |
+|-------|------------|
+| **Messaging** | • Forwards *text / photos / documents / stickers*<br>• Rich reply flow (user ↔ agent DM) |
+| **Ticketing** | • Automatic ticket creation with unique ID<br>• Claim / resolve / close with safety checks<br>• Re-opening prompt (“new issue or related?”)<br>• Spam throttle & bad-word filter |
+| **Agent Management** | • Self-service onboarding (`/become_agent`)<br>• Languages & availability profile<br>• Claim-restriction based on user language |
+| **Performance & Commissions** | • Tracks *claimed / resolved* counts per agent<br>• Configurable commission-per-ticket & earnings ledger<br>• Admin stats & summary reports |
+| **Language Routing** | • Detects Telegram `language_code`<br>• Fallback inline picker (`/set_language`)<br>• Agents may only claim tickets they can serve |
+| **Admin Tools** | • Ban/Un-ban users, open-ticket list, full performance report<br>• Dynamic commission rates |
+| **Misc** | • Customisable FAQ, emoji language badge, spam counter, MySQL persistence |
 
-> 💡 Got a feature idea? Open an [issue](https://github.com/fabston/Telegram-Support-Bot/issues/new?assignees=&labels=enhancement&template=feature-request---.md) and I might implement it.
+> 💡 Have a new idea? Open an [issue](https://github.com/fabston/Telegram-Support-Bot/issues/new/choose).
 
-### Staff commands
+---
+
+## Commands
+### User
 | Command | Description |
-| --- | --- |
-| /ban | Ban user by ID or reply |
-| /unban | Un-ban user by ID or reply |
-| /banned | List banned users |
-| /tickets or /t | List open tickets |
-| /close or /c | Manually close a ticket by reply |
+|---------|-------------|
+| `/start` | Intro & FAQ link |
+| `/faq` | Display FAQs |
+| `/set_language` | Inline keyboard to pick UI language |
 
-### User commands
+### Agent (run in **DM** with the bot unless noted)
 | Command | Description |
-| --- | --- |
-| /start | Starts the bot |
-| /faq | Show the FAQ's |
+|---------|-------------|
+| `/become_agent` | Interactive onboarding |
+| `/whoami` | Show agent profile, stats & earnings |
+| `/mytickets` | List tickets you currently claim |
+| `/setlang <codes>` | Update languages you serve (ex: `en,es`) |
+| `/resolve <user_id>` *(group only)* | Mark a ticket resolved |
+| `/claim_ticket` *(reply in group)* | Manual claim if button fails |
 
+### Staff (group-only helpers - require agent role)
+| Command | Description |
+|---------|-------------|
+| `/tickets` or `/t` | List open tickets |
+| `/close <user_id>` | Close a *resolved* ticket (admin can force) |
+
+### Admin superset
+| Command | Description |
+|---------|-------------|
+| `/set_commission <agent_id> <rate>` | Set % rate for an agent |
+| `/agent_stat <agent_id>` | Detailed agent stats |
+| `/report_summary` | Overall performance dashboard |
+| `/ban` / `/unban` | Ban / un-ban user by reply or ID |
+| `/banned` | List banned users |
+| `/groupid` | Echo group chat-id (debug) |
+
+---
 
 ## Installation
-> ⚠️ Best to run the bot on a VPS. I can recommend <a href="https://hetzner.cloud/?ref=tQ1NdT8zbfNY" title="Get €20 in cloud credits">Hetzner</a>'s CX11 VPS for 2.89€/month. [Sign up](https://hetzner.cloud/?ref=tQ1NdT8zbfNY) now and receive **€20 free** credits.
-1. Log into MySQL (`sudo mysql`) and create a dedicated database and user with the following commands:
-   1. `CREATE DATABASE TelegramSupportBot;`
-   1. `CREATE USER 'SupportBotUser'@'localhost' IDENTIFIED BY '<YOUR PASSWORD>';`
-   1. `GRANT ALL PRIVILEGES ON TelegramSupportBot . * TO 'SupportBotUser'@'localhost';`
-   1. `exit;`
-1. Clone this repository `git clone https://github.com/fabston/Telegram-Support-Bot.git`
-1. Create your virtual environment `python3 -m venv Telegram-Support-Bot`
-1. Activate it `source Telegram-Support-Bot/bin/activate && cd Telegram-Support-Bot`
-1. Install all requirements `pip install -r requirements.txt`
-1. Edit and update [`config.py`](https://github.com/fabston/Telegram-Support-Bot/blob/master/config.py)
-1. Run the bot `python main.py`
+> ⚠️ Best hosted on a small VPS (e.g. Hetzner CX11 €2.89/mo). [Sign up & get €20 credit](https://hetzner.cloud/?ref=tQ1NdT8zbfNY).
 
+1. **MySQL prep**
+   ```sql
+   CREATE DATABASE TelegramSupportBot;
+   CREATE USER 'SupportBotUser'@'localhost' IDENTIFIED BY '<PASSWORD>';
+   GRANT ALL PRIVILEGES ON TelegramSupportBot.* TO 'SupportBotUser'@'localhost';
+````
+
+Then run the migration script in `docs/migrations.sql` to create `tickets`, add new columns, etc.
+2\. **Clone & env**
+
+```bash
+git clone https://github.com/fabston/Telegram-Support-Bot.git
+cd Telegram-Support-Bot
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+cp config.sample.py config.py            # edit values
+```
+
+3. **Run**
+
+   ```bash
+   python main.py
+   ```
+
+   Optionally install as a systemd service (`docs/supportbot.service`).
+
+---
+
+## Testing & Handoff
+
+| Step                         | Actor        | What to verify                                 |
+| ---------------------------- | ------------ | ---------------------------------------------- |
+| Ticket creation & forwarding | User → group | `tickets` row created, `current_ticket_id` set |
+| Claim flow                   | Agent        | Claim button updates DB, DM routing works      |
+| Resolve/close rules          | Agent/Admin  | Cannot close unless resolved (except admin)    |
+| Commission credit            | Agent        | `agents.total_earnings` increases on close     |
+| Language gate                | Agent        | Claim blocked if language mismatch             |
+| Re-opening prompt            | User         | Bot asks *new vs related* when appropriate     |
+| Reports                      | Admin        | `/agent_stat` & `/report_summary` accurate     |
+
+See `docs/test_checklist.md` for full script.
+
+---
 
 ## Images
+
 ![Telegram Support Bot](https://raw.githubusercontent.com/fabston/Telegram-Support-Bot/master/assets/about.jpg)
 
-## How can I help?
-All kinds of contributions are welcome 🙌! The most basic way to show your support is to `⭐️ star` the project, or raise [`🐞 issues`](https://github.com/fabston/Telegram-Support-Bot/issues/new/choose). 
+---
 
-***
+## How can I help?
+
+All contributions welcome 🙌 — the easiest: **star** ⭐ the repo, or file [`🐞 issues`](https://github.com/fabston/Telegram-Support-Bot/issues/new/choose).
+
+---
 
 <p align="center">
-    <a href="https://www.buymeacoffee.com/fabston"><img alt="Buy Me A Coffee" title="☕️" src="https://github.com/fabston/Telegram-Airdrop-Bot/blob/main/assets/bmac.png?raw=true" width=200px></a>
+  <a href="https://www.buymeacoffee.com/fabston"><img alt="Buy Me A Coffee" src="https://github.com/fabston/Telegram-Airdrop-Bot/blob/main/assets/bmac.png?raw=true" width=200></a>
 </p>
