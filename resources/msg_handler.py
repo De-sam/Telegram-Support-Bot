@@ -92,12 +92,11 @@ def snd_to_agent(agent_id, bot, message):
     Send the user's private message to the claiming agent (in the agent's DM).
     """
     try:
-        prefix = f"📨 From user `{message.from_user.id}`"
         if message.content_type == 'text':
             bot.send_chat_action(agent_id, 'typing')
             bot.send_message(
                 agent_id,
-                f"{prefix}:\n\n{message.text}",
+                f"{message.text}",
                 parse_mode='Markdown',
                 disable_web_page_preview=True
             )
@@ -107,7 +106,7 @@ def snd_to_agent(agent_id, bot, message):
             bot.send_photo(
                 agent_id,
                 message.photo[-1].file_id,
-                caption=f"{prefix}:\n\n{msgCaption(message)}",
+                caption=f"{msgCaption(message)}",
                 parse_mode='Markdown'
             )
 
@@ -116,7 +115,7 @@ def snd_to_agent(agent_id, bot, message):
             bot.send_document(
                 agent_id,
                 message.document.file_id,
-                caption=f"{prefix}:\n\n{msgCaption(message)}",
+                caption=f"{msgCaption(message)}",
                 parse_mode='Markdown'
             )
 
