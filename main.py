@@ -368,23 +368,27 @@ def echo_all(message):
     mysql.start_bot(message.chat.id)
     sender_id = message.chat.id
 
-    # Ensure we know user's language
+    # ---- AGENT DM FLOW ----
+    if is_agent(sender_id):
+        target_user = mysql.get_claimed_ticket_by_agent(sender_id)
+        if target_user:
+            msg.snd_handler(target_user, bot, message, message.text)
+        else:
+            bot.reply_to(message, "You haven't claimed any ticket. Claim one in the group first.")
+        return
+
+    # ---- USER FLOW ----
+    # ensure language ONLY for users
     if not ensure_user_language(message):
         return
 
-    # Agent DM to user
-    claimed_user_id = mysql.get_claimed_ticket_by_agent(sender_id)
-    if claimed_user_id:
-        msg.snd_handler(claimed_user_id, bot, message, message.text)
-        return
-
-    # User DM, agent already claimed
+    # If user’s ticket is claimed -> send to that agent
     claimed_by_agent = mysql.get_ticket_claim(sender_id)
     if claimed_by_agent:
         msg.snd_to_agent(claimed_by_agent, bot, message)
         return
 
-    # Normal user flow
+    # Normal (unclaimed) user flow
     data = mysql.user_tables(sender_id) or {}
     if data.get('banned', 0) == 1:
         return
@@ -406,21 +410,19 @@ def echo_all(message):
             )
             return
 
-    # Forward to group
+    # Forward user message to support group
     msg.fwd_handler(sender_id, bot, message)
 
-    # Link in DB
+    # Save / update ticket links
     row = mysql.user_tables(sender_id)
     msg_link = row.get('open_ticket_link')
-
-    # Create / update ticket record
     if not current_ticket:
         ticket_id = mysql.create_ticket(sender_id, msg_link)
     else:
         ticket_id = current_ticket['id']
     mysql.mark_ticket_last_link(ticket_id, msg_link)
 
-    # If related to old ticket, send context
+    # If user said it's related to old ticket, post context
     choice = pending_issue_choice.pop(sender_id, None)
     if choice:
         old_tid = choice.get("relate_ticket_id")
@@ -429,8 +431,7 @@ def echo_all(message):
             ctx_link = old.get('last_message_link') or old.get('first_message_link')
             bot.send_message(
                 config.support_chat,
-                f"🧷 *Context:* User `{sender_id}` says this is related to ticket `#{old_tid}`\n"
-                f"Last link: {ctx_link}",
+                f"🧷 *Context:* User `{sender_id}` says this is related to ticket `#{old_tid}`\nLast link: {ctx_link}",
                 parse_mode="Markdown",
                 disable_web_page_preview=True
             )

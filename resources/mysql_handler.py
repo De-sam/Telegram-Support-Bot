@@ -1,6 +1,6 @@
 # --------------------------------------------- #
 # Plugin Name           : Telegram Support Bot  #
-# Author Name           : fabston               #
+# Author Name           : fabston (extended)    #
 # File Name             : mysql_handler.py      #
 # --------------------------------------------- #
 
@@ -30,10 +30,7 @@ def _column_exists(cur, table, column):
     return cur.fetchone() is not None
 
 def run_migrations():
-    """
-    Create/alter all required tables & columns.
-    Safe to call every start (idempotent).
-    """
+    """Create/alter all required tables & columns. Safe to call every start."""
     conn = getConnection()
     try:
         with conn.cursor() as c:
@@ -115,7 +112,6 @@ def run_migrations():
                       INDEX idx_ticket_claim (claimed_by)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """)
-            # else: add later columns here if schema evolves
 
         conn.commit()
         print("✅ DB migrations ok")
@@ -133,14 +129,28 @@ def save_user_language(user_id, lang_code):
 def clear_ticket_claim(user_id):
     conn = getConnection()
     with conn.cursor() as cursor:
-        cursor.execute("UPDATE users SET claimed_by = NULL WHERE userid = %s", (user_id,))
+        cursor.execute("UPDATE users SET claimed_by = NULL, claim_time=NULL WHERE userid = %s", (user_id,))
 
 def get_claimed_ticket_by_agent(agent_id):
+    """
+    Return the user_id of the ticket currently claimed by this agent.
+    Checks users table first (legacy), then tickets table.
+    """
     conn = getConnection()
-    with conn.cursor() as cursor:
-        cursor.execute("SELECT userid FROM users WHERE claimed_by = %s AND open_ticket = 1", (agent_id,))
-        row = cursor.fetchone()
-        return row['userid'] if row else None
+    try:
+        with conn.cursor() as c:
+            c.execute("""SELECT userid FROM users
+                         WHERE claimed_by=%s AND open_ticket=1 LIMIT 1""", (agent_id,))
+            r = c.fetchone()
+            if r:
+                return r['userid']
+            c.execute("""SELECT user_id FROM tickets
+                         WHERE claimed_by=%s AND closed_at IS NULL
+                         LIMIT 1""", (agent_id,))
+            r = c.fetchone()
+            return r['user_id'] if r else None
+    finally:
+        conn.close()
 
 def get_agent_profile(user_id):
     conn = getConnection()
@@ -258,7 +268,7 @@ def get_user_language(user_id):
         row = cursor.fetchone()
         return row['language'] if row and row['language'] else 'en'
 
-# (legacy helper kept; migrations supersede it)
+# (legacy helper; kept for compatibility)
 def ensure_claimed_by_column():
     try:
         conn = getConnection()
@@ -276,7 +286,7 @@ def ensure_claimed_by_column():
             pass
 
 def createTables():
-    """Kept for backward compatibility (noop)."""
+    """No-op (backward compatibility)."""
     return
 
 def save_pending_agent(user_id, full_name, languages, availability):
@@ -387,7 +397,8 @@ def unban_user(user_id):
 def claim_ticket(user_id, agent_id):
     conn = getConnection()
     with conn.cursor() as cursor:
-        cursor.execute("UPDATE users SET claimed_by = %s WHERE userid = %s", (agent_id, user_id))
+        cursor.execute("UPDATE users SET claimed_by = %s, claim_time=%s WHERE userid = %s",
+                       (agent_id, datetime.now(), user_id))
 
 def get_ticket_claim(user_id):
     conn = getConnection()
@@ -491,11 +502,9 @@ def reset_user_ticket_state(user_id):
         conn.close()
 
 # ------------- Globals ------------- #
-# Call after migrations to ensure tables exist
 try:
     open_tickets = getOpenTickets()
     banned = getBanned()
 except Exception:
-    # If called before migrations, will be re-populated after run_migrations()
     open_tickets = []
     banned = []
